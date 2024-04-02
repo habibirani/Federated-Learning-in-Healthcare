@@ -66,7 +66,27 @@ for epoch in range(epochs):
     model.get()
 
 # Aggregate the models (average)
-model_avg = (model.get() + model.copy().send(hospital1).get()) / 2
+model_avg_params = (model.fc.weight.data + model.copy().send(hospital1).get().fc.weight.data) / 2
+model_avg_bias = (model.fc.bias.data + model.copy().send(hospital1).get().fc.bias.data) / 2
+
+# Update the model with averaged parameters
+model_avg = FederatedModel()
+model_avg.fc.weight.data = model_avg_params
+model_avg.fc.bias.data = model_avg_bias
 
 # Get the final model from any hospital (e.g., hospital1)
 final_model = model_avg.get()
+
+# For simplicity, let's use the same synthetic data from hospital1 as the test data
+test_data = torch.tensor(hospital1_data)
+test_labels = torch.tensor(hospital1_labels)
+
+# Evaluate the federated model on the test data
+with torch.no_grad():
+    model_avg.eval()  # Set the model to evaluation mode
+    predictions = model_avg(test_data.float()).round().squeeze().detach().numpy()
+
+# Calculate accuracy
+accuracy = (predictions == test_labels.numpy()).mean()
+print("Accuracy:", accuracy)
+
